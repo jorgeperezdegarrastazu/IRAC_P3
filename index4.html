@@ -1,0 +1,162 @@
+<!--P4-->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="dash.all.min.js"></script>
+    <script src="chart.min.js"></script>
+    <style>
+        canvas {
+            max-width: 400px;
+            margin-bottom: 20px;
+        }
+        body {
+            font-family: sans-serif;
+            text-align: center;
+        }
+        .chart-container {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+
+<video class="dashjs-player" autoplay controls preload="auto" width="640" height="360"></video>
+
+<div class="code">
+    <p>Video Bitrate: <span id="bitrate"> kbps</span></p>
+    <p>Video Buffer: <span id="buffer"> seconds</span></p>
+    <p>Video Representation: <span id="representation"></span></p>
+</div>
+
+<div class="chart-container">
+    <canvas id="bitrateBufferChart" width="800" height="200"></canvas>
+    <canvas id="repChart" width="800" height="200"></canvas>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    init();
+});
+
+function init(){
+    var video,
+        player,
+        mpd_url = "./output/stream.mpd"; // actualiza si es necesario
+
+    video = document.querySelector("video");
+    player = dashjs.MediaPlayer().create();
+    player.initialize(video, mpd_url, true);
+
+    const bitrateBufferData = {
+        labels: [],
+        datasets: [
+            {
+                label: 'Bitrate (Kbps)',
+                data: [],
+                borderColor: 'blue',
+                fill: false,
+                yAxisID: 'y'
+            },
+            {
+                label: 'Buffer (s)',
+                data: [],
+                borderColor: 'green',
+                fill: false,
+                yAxisID: 'y1'
+            }
+        ]
+    };
+
+    const bitrateBufferChart = new Chart(document.getElementById('bitrateBufferChart'), {
+        type: 'line',
+        data: bitrateBufferData,
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    type: 'linear',
+                    position: 'left',
+                    title: { display: true, text: 'Bitrate (Kbps)' }
+                },
+                y1: {
+                    type: 'linear',
+                    position: 'right',
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: 'Buffer (s)' }
+                }
+            }
+        }
+    });
+
+
+    const repData = {
+        labels: [],
+        datasets: [{
+            label: 'Representation',
+            data: [],
+            borderColor: 'red',
+            fill: false
+        }]
+    };
+
+    const repChart = new Chart(document.getElementById('repChart'), {
+        type: 'line',
+        data: repData,
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    title: { display: true, text: 'Representation Index' },
+                    ticks: { stepSize: 1 }
+                }
+            }
+        }
+    });
+
+
+    var eventPoller = setInterval(function () {
+        var streamInfo = player.getActiveStream().getStreamInfo();
+        var dashMetrics = player.getDashMetrics();
+        var dashAdapter = player.getDashAdapter();
+
+        if (dashMetrics && streamInfo) {
+            const periodIdx = streamInfo.index;
+            var repSwitch = dashMetrics.getCurrentRepresentationSwitch('video', true);
+            var bufferLevel = dashMetrics.getCurrentBufferLevel('video', true);
+            var bitrate = repSwitch ? Math.round(
+                dashAdapter.getBandwidthForRepresentation(repSwitch.to, periodIdx) / 1000
+            ) : NaN;
+            var repId = repSwitch ? repSwitch.to : "-";
+
+            const timestamp = new Date().toLocaleTimeString();
+
+         
+            document.getElementById('buffer').innerText = bufferLevel + " secs";
+            document.getElementById('bitrate').innerText = bitrate + " Kbps";
+            document.getElementById('representation').innerText = repId;
+
+            bitrateBufferData.labels.push(timestamp);
+            bitrateBufferData.datasets[0].data.push(bitrate);
+            bitrateBufferData.datasets[1].data.push(bufferLevel);
+            bitrateBufferChart.update();
+
+            repData.labels.push(timestamp);
+            repData.datasets[0].data.push(parseInt(repId.replace(/\D/g, '')) || 0);
+            repChart.update();
+        }
+    }, 1000);
+
+    player.on(dashjs.MediaPlayer.events["PLAYBACK_ENDED"], function() {
+        clearInterval(eventPoller);
+    });
+}
+
+
+</script>
+
+</body>
+</html>

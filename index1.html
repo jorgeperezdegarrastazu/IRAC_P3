@@ -1,0 +1,30 @@
+<!--P1-->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="dash.all.min.js"></script>
+    <script src="chart.min.js"></script>
+</head>
+<body>
+
+<video class="dashjs-player" autoplay controls preload="auto" width="640" height="360">
+    <source src="manifest.mpd" type="application/dash+xml"/>
+</video>
+
+
+<script>
+    var player;
+    document.addEventListener("DOMContentLoaded", function(){
+        init();
+    });
+    function init(){
+        player = dashjs.MediaPlayerFactory.create(document.querySelector(".dashjs-player"));
+    };
+</script>
+
+
+
+
+</body>
+</html>

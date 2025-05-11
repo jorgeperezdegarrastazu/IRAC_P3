@@ -1,0 +1,72 @@
+<!--P3-->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="dash.all.min.js"></script>
+    <script src="chart.min.js"></script>
+</head>
+<body>
+
+<video class="dashjs-player" autoplay controls preload="auto">
+</video>
+
+
+<div class="code">
+    <p>Video Bitrate: <span id="bitrate"> kbps</span></p>
+    <p>Video Buffer: <span id="buffer"> seconds</span></p>
+    <p>Video Representation: <span id="representation"></span></p>
+</div> 
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        init();
+    });
+
+    var protectionData = {
+        "org.w3.clearkey": {
+            "clearkeys": {
+                // KID: A16E402B9056E371F36D348AA62BB749 (base64)
+                // KEY: 87237D20A19F58A740C05684E699B4AA (base64)
+                "oW5AK5BW43HzbTSKmiu3SQ": "hyN9IKGfWKdAwFaE5pm0qg"
+            }
+        }
+    };
+    
+    function init(){
+        var video,
+            player,
+            mpd_url = "./output_drm/stream.mpd";
+        video = document.querySelector("video");
+        player = dashjs.MediaPlayer().create();
+        player.setProtectionData(protectionData);
+        player.initialize(video, mpd_url, true);
+        
+        player.on(dashjs.MediaPlayer.events["PLAYBACK_ENDED"], function() {
+            clearInterval(eventPoller);
+        });
+        
+        var eventPoller = setInterval(function () {
+            var streamInfo = player.getActiveStream().getStreamInfo();
+            var dashMetrics = player.getDashMetrics();
+            var dashAdapter = player.getDashAdapter();
+    
+            if (dashMetrics && streamInfo) {
+                const periodIdx = streamInfo.index;
+                var repSwitch = dashMetrics.getCurrentRepresentationSwitch('video', true);
+                var bufferLevel = dashMetrics.getCurrentBufferLevel('video', true);
+                var bitrate = repSwitch ? Math.round(
+                    dashAdapter.getBandwidthForRepresentation(repSwitch.to, periodIdx) / 1000
+                ) : NaN;
+    
+                document.getElementById('buffer').innerText = bufferLevel + " secs";
+                document.getElementById('bitrate').innerText = bitrate + " Kbps";
+                document.getElementById('representation').innerText = repSwitch.to;
+            }
+        }, 500);
+    }
+
+</script>
+
+</body>
+</html>
